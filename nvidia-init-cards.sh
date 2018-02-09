@@ -39,7 +39,7 @@ do
 		    -a "[gpu:$gpu_id]/GPUFanControlState=1" \
 		    -a "[fan:$gpu_id]/GPUTargetFanSpeed=65" \
 		    -a "[gpu:$gpu_id]/GPUGraphicsClockOffset[3]=108" \
-		    -a "[gpu:$gpu_id]/GPUMemoryTransferRateOffset[3]=-250"
+		    -a "[gpu:$gpu_id]/GPUMemoryTransferRateOffset[3]=1000"
 	elif [[ $gpu_type == 'GeForce GTX 1070' ]]
 	then
 		# 1070
@@ -48,7 +48,7 @@ do
 		    -a "[gpu:$gpu_id]/GPUFanControlState=1" \
 		    -a "[fan:$gpu_id]/GPUTargetFanSpeed=65" \
 		    -a "[gpu:$gpu_id]/GPUGraphicsClockOffset[3]=100" \
-		    -a "[gpu:$gpu_id]/GPUMemoryTransferRateOffset[3]=-250"
+		    -a "[gpu:$gpu_id]/GPUMemoryTransferRateOffset[3]=1000"
 	else
 		echo "Unrecognized GPU: $line"
 	fi
