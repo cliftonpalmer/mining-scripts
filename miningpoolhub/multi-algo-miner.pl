@@ -10,7 +10,6 @@ use Data::Dumper;
 # init
 ################################################################################
 use constant CHILD_FILE => '/etc/multi-algo/child.json';
-unlink CHILD_FILE;
 
 use vars qw( $dryrun $debug $user $token $interval );
 $interval = 1 unless $interval;
@@ -74,6 +73,7 @@ sub get_child_info {
 		close $fh;
 		return $child_info;
 	}
+	return
 }
 
 ################################################################################
@@ -82,6 +82,9 @@ sub set_child_info {
 	if (open my $fh, '>', CHILD_FILE) {
 		print $fh to_json($child_info);
 		close $fh;
+	}
+	else {
+		die sprintf "Unable to write to child file: %s\n", CHILD_FILE
 	}
 }
 
@@ -113,8 +116,12 @@ sub stop_child {
 # switch to mining that algorithm with ccminer
 print "Starting CJ's multi-algo miner\n";
 print "Assessment interval is $interval seconds\n";
+printf "Removing old child file %s\n", CHILD_FILE;
+unlink CHILD_FILE;
 
 while (1) {
+	print "Starting parent loop\n";
+
 	if (my $best_stat = get_best_stat) {
 		print Dumper($best_stat) if $debug;
 
@@ -122,7 +129,7 @@ while (1) {
 		# otherwise, kill the child
 		if (my $child_info = get_child_info) {
 			if ($child_info->{algo} eq $best_stat->{algo}) {
-				print "Already mining the best algorithm, exiting\n";
+				print "Already mining the best algorithm, nothing to do\n";
 				goto DONE_LOOP;
 			}
 			else {
@@ -135,6 +142,9 @@ while (1) {
 					stop_child($child_pid);
 				}
 			}
+		}
+		else {
+			print "Unable to read child file\n";
 		}
 
 		# start a new child for the best algorithm
@@ -150,6 +160,7 @@ while (1) {
 
 		if ($dryrun) {
 			print "Would start child here: $cmd\n";
+			set_child_info($best_stat);
 		}
 		else {
 			print "Starting child: $cmd\n";
@@ -164,6 +175,6 @@ while (1) {
 
 DONE_LOOP:
 	# parent sleeps until I decide to check again
-	print "Parent sleeping for $interval seconds\n";
+	print "Parent now sleeping for $interval seconds\n";
 	sleep $interval;
 }
