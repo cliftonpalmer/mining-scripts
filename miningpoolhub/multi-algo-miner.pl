@@ -111,7 +111,7 @@ while (1) {
 		if (my $child_info = get_child_info) {
 			if ($child_info->{algo} eq $best_stat->{algo}) {
 				print "Already mining the best algorithm, exiting\n";
-				exit
+				goto DONE_LOOP;
 			}
 			else {
 				my $child_pid = $child_info->{pid};
@@ -144,6 +144,7 @@ while (1) {
 		print "Nothing to mine!\n";
 	}
 
+DONE_LOOP:
 	# parent sleeps until I decide to check again
 	print "Parent sleeping for $interval seconds\n";
 	sleep $interval;
