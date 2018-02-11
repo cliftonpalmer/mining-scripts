@@ -6,9 +6,14 @@ use warnings;
 use JSON;
 use Data::Dumper;
 
+################################################################################
+# init
+################################################################################
 use constant CHILD_FILE => '/etc/multi-algo/child.json';
 
-use vars qw( $dryrun $debug $user $token );
+use vars qw( $dryrun $debug $user $token $interval );
+$interval = 1 unless $interval;
+$interval = int(60 * $interval);
 $dryrun = 0 unless $dryrun;
 $debug = 0 unless $debug;
 die "Need user" unless $user;
@@ -18,10 +23,14 @@ die "Need API token" unless $token;
 my @ccminer_algos = split "\n", `ccminer -h | awk '\$1 == "-d," {exit} p {print \$1} \$1 == "-a," {p++}'`;
 print Dumper(\@ccminer_algos) if $debug > 1;
 
+################################################################################
+# subs
+################################################################################
 sub get_stats {
 	from_json(`curl -s "http://miningpoolhub.com/index.php?page=api&action=getautoswitchingandprofitsstatistics"`)
 }
 
+################################################################################
 sub get_best_stat {
 	my $stats = get_stats;
 	my $best_stat;
@@ -40,6 +49,7 @@ sub get_best_stat {
 	return $best_stat
 }
 
+################################################################################
 sub get_ccminer_cmd {
 	my $stat = shift;
 	my $algo = lc $stat->{algo};
@@ -48,6 +58,7 @@ sub get_ccminer_cmd {
 	return "ccminer -r 0 -a $algo -o stratum+tcp://$host:$port -u $user.`hostname` -p x"
 }
 
+################################################################################
 sub get_child_info {
 	if (open my $fh, '<', CHILD_FILE) {
 		my $child_info = from_json(<$fh>);
@@ -56,6 +67,7 @@ sub get_child_info {
 	}
 }
 
+################################################################################
 sub set_child_info {
 	my $child_info = shift;
 	if (open my $fh, '>', CHILD_FILE) {
@@ -64,6 +76,7 @@ sub set_child_info {
 	}
 }
 
+################################################################################
 sub start_child {
 	my $cmd = shift;
 	my $pid;
@@ -76,51 +89,62 @@ sub start_child {
 	}
 }
 
+################################################################################
 sub stop_child {
 	my $child_pid = shift;
 	kill 'TERM', $child_pid;
 	waitpid $child_pid, 0;
 }
 
+################################################################################
+# logic
+################################################################################
+
 # find whatever coin algorithm has the highest profit
 # switch to mining that algorithm with ccminer
-if (my $best_stat = get_best_stat) {
-	print Dumper($best_stat) if $debug;
+while (1) {
+	if (my $best_stat = get_best_stat) {
+		print Dumper($best_stat) if $debug;
 
-	# if I'm already mining the best algorithm, then exit
-	# otherwise, kill the child
-	if (my $child_info = get_child_info) {
-		if ($child_info->{algo} eq $best_stat->{algo}) {
-			print "Already mining the best algorithm, exiting\n";
-			exit
-		}
-		else {
-			my $child_pid = $child_info->{pid};
-			if ($dryrun) {
-				print "Would kill child $child_pid here\n";
+		# if I'm already mining the best algorithm, then exit
+		# otherwise, kill the child
+		if (my $child_info = get_child_info) {
+			if ($child_info->{algo} eq $best_stat->{algo}) {
+				print "Already mining the best algorithm, exiting\n";
+				exit
 			}
 			else {
-				print "Stopping child: $child_pid\n";
-				stop_child($child_pid);
+				my $child_pid = $child_info->{pid};
+				if ($dryrun) {
+					print "Would kill child $child_pid here\n";
+				}
+				else {
+					print "Stopping child: $child_pid\n";
+					stop_child($child_pid);
+				}
 			}
 		}
-	}
 
-	# start a new child for the best algorithm
-	# uses all the data we have so far to make the decision
-	my $cmd = get_ccminer_cmd($best_stat);
-	$best_stat->{cmd} = $cmd;
+		# start a new child for the best algorithm
+		# uses all the data we have so far to make the decision
+		my $cmd = get_ccminer_cmd($best_stat);
+		$best_stat->{cmd} = $cmd;
 
-	if ($dryrun) {
-		print "Would start child here: $cmd\n";
+		if ($dryrun) {
+			print "Would start child here: $cmd\n";
+		}
+		else {
+			print "Starting child: $cmd\n";
+			my $pid = start_child($cmd);
+			$best_stat->{pid} = $pid;
+			set_child_info($best_stat);
+		}
 	}
 	else {
-		print "Starting child: $cmd\n";
-		my $pid = start_child($cmd);
-		$best_stat->{pid} = $pid;
-		set_child_info($best_stat);
+		print "Nothing to mine!\n";
 	}
-}
-else {
-	print "Nothing to mine!\n";
+
+	# parent sleeps until I decide to check again
+	print "Parent sleeping for $interval seconds\n";
+	sleep $interval;
 }
