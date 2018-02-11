@@ -10,6 +10,7 @@ use Data::Dumper;
 # init
 ################################################################################
 use constant CHILD_FILE => '/etc/multi-algo/child.json';
+unlink CHILD_FILE;
 
 use vars qw( $dryrun $debug $user $token $interval );
 $interval = 1 unless $interval;

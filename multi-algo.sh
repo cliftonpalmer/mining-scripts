@@ -8,7 +8,7 @@ password=$2
 # from https://miningpoolhub.com/?page=gettingstarted
 while true
 do
-	ethminer -U -S us-east.ethash-hub.miningpoolhub.com:12020 -O $username.$workername:"$password" -FS exit
+	#ethminer --farm-retries 0 -U -S us-east.ethash-hub.miningpoolhub.com:12020 -O $username.$workername:"$password" -FS exit
 	bminer -uri stratum+ssl://$username.$workername@us-east.equihash-hub.miningpoolhub.com:12023 -max-network-failures=0 -watchdog=false
 	ccminer -r 0 -a groestl -o stratum+tcp://hub.miningpoolhub.com:12004 -u $username.$workername -p "$password"
 	ccminer -r 0 -a myr-gr -o stratum+tcp://hub.miningpoolhub.com:12005 -u $username.$workername -p "$password"
