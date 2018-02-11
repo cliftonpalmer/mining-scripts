@@ -51,6 +51,14 @@ sub get_best_stat {
 }
 
 ################################################################################
+sub get_bminer_cmd {
+	my $stat = shift;
+	my $algo = lc $stat->{algo};
+	my $host = $stat->{host};
+	my $port = $stat->{multialgo_switch_port};
+	return "bminer -uri stratum+ssl://$user.`hostname`\@$host:$port -max-network-failures=0 -watchdog=false"
+}
+
 sub get_ccminer_cmd {
 	my $stat = shift;
 	my $algo = lc $stat->{algo};
@@ -103,6 +111,9 @@ sub stop_child {
 
 # find whatever coin algorithm has the highest profit
 # switch to mining that algorithm with ccminer
+print "Starting CJ's multi-algo miner\n";
+print "Assessment interval is $interval seconds\n";
+
 while (1) {
 	if (my $best_stat = get_best_stat) {
 		print Dumper($best_stat) if $debug;
@@ -128,7 +139,13 @@ while (1) {
 
 		# start a new child for the best algorithm
 		# uses all the data we have so far to make the decision
-		my $cmd = get_ccminer_cmd($best_stat);
+		my $cmd;
+		if (lc($best_stat->{algo}) eq 'equihash') {
+			$cmd = get_bminer_cmd($best_stat);
+		}
+		else {
+			$cmd = get_ccminer_cmd($best_stat);
+		}
 		$best_stat->{cmd} = $cmd;
 
 		if ($dryrun) {
