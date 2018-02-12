@@ -78,10 +78,7 @@ while (1) {
 		# start child miner
 		if ($cmd) {
 			print "Starting child: $cmd\n";
-			my $pid;
-			die "fork: $!" unless defined ($pid = fork);
-			exec $cmd unless $pid;
-			waitpid $pid, 0;
+			system $cmd
 		}
 		else {
 			print "Nothing can run this algorithm: $algo\n";
