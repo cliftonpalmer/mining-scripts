@@ -65,7 +65,8 @@ while (1) {
 
 		# pick miner
 		if ($algo eq 'ethash') {
-			$cmd = get_ethminer_cmd($host, $port);
+			# disabled because it won't exist even after failover
+			#$cmd = get_ethminer_cmd($host, $port);
 		}
 		elsif ($algo eq 'equihash') {
 			$cmd = get_bminer_cmd($host, $port);
