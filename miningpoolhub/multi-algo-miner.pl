@@ -22,41 +22,32 @@ sub get_stats {
 }
 
 ################################################################################
-sub get_best_stat {
+sub get_algo_to_stat {
 	my $stats = get_stats;
-	my $best_stat;
+	my %algo_to_stat = ();
 
-	# get most profitable stat for nvidia cards
 	for my $stat (@{$stats->{return}}) {
-		$best_stat = $stat and next unless $best_stat;
-
-		if ($stat->{profit} > $best_stat->{profit}) {
-			$best_stat = $stat;
-		}
+		my $algo = lc $stat->{algo};
+		$algo_to_stat{$algo}{host} = $stat->{host};
+		$algo_to_stat{$algo}{port} = $stat->{multialgo_switch_port};
 	}
-	return $best_stat
+
+	return \%algo_to_stat;
 }
 
 ################################################################################
 sub get_ethminer_cmd {
-	my $stat = shift;
-	my $host = $stat->{host};
-	my $port = $stat->{multialgo_switch_port};
+	my ($host, $port) = @_;
 	return "ethminer --farm-retries 0 -U -S $host:$port -O $user.`hostname`:x"
 }
 
 sub get_bminer_cmd {
-	my $stat = shift;
-	my $host = $stat->{host};
-	my $port = $stat->{multialgo_switch_port};
+	my ($host, $port) = @_;
 	return "bminer -uri stratum+ssl://$user.`hostname`\@$host:$port -max-network-failures=0 -watchdog=false"
 }
 
 sub get_ccminer_cmd {
-	my $stat = shift;
-	my $algo = lc $stat->{algo};
-	my $host = $stat->{host};
-	my $port = $stat->{multialgo_switch_port};
+	my ($host, $port, $algo) = @_;
 	return "ccminer -r 0 -a $algo -o stratum+tcp://$host:$port -u $user.`hostname` -p x"
 }
 
@@ -66,24 +57,24 @@ sub get_ccminer_cmd {
 print "Starting CJ's multi-algo miner\n";
 while (1) {
 	print "Starting the parent loop\n";
-	if (my $best_stat = get_best_stat) {
-		print Dumper($best_stat) if $debug;
-
-		# start a new child for the best algorithm
-		# uses all the data we have so far to make the decision
+	my $algo_to_stat = get_algo_to_stat;
+	while (my ($algo, $stat) = each %$algo_to_stat) {
+		my $host = $stat->{host};
+		my $port = $stat->{port};
 		my $cmd;
 
-		my $algo = lc $best_stat->{algo};
+		# pick miner
 		if ($algo eq 'ethash') {
-			$cmd = get_ethminer_cmd($best_stat);
+			$cmd = get_ethminer_cmd($host, $port);
 		}
 		elsif ($algo eq 'equihash') {
-			$cmd = get_bminer_cmd($best_stat);
+			$cmd = get_bminer_cmd($host, $port);
 		}
 		elsif (grep { $_ eq $algo } @ccminer_algos) {
-			$cmd = get_ccminer_cmd($best_stat);
+			$cmd = get_ccminer_cmd($host, $port, $algo);
 		}
 
+		# start child miner
 		if ($cmd) {
 			print "Starting child: $cmd\n";
 			my $pid;
