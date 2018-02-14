@@ -53,3 +53,5 @@ do
 		echo "Unrecognized GPU: $line"
 	fi
 done
+
+wait
