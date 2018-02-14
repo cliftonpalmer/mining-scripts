@@ -11,8 +11,9 @@ $debug = 0 unless $debug;
 die "Need user" unless $user;
 
 # get available algorithms from ccminer
-my @ccminer_algos = split "\n", `ccminer -h | awk '\$1 == "-d," {exit} p {print \$1} \$1 == "-a," {p++}'`;
-print Dumper(\@ccminer_algos) if $debug > 1;
+my %ccminer_algos = split /\n| => /,
+	`ccminer -h | awk '\$1 == "-d," {exit} p {print \$1,"=>",\$2 } \$1 == "-a," {p++}'`;
+print Dumper(\%ccminer_algos) if $debug > 1;
 
 ################################################################################
 # subs
@@ -22,17 +23,48 @@ sub get_stats {
 }
 
 ################################################################################
-sub get_algo_to_stat {
-	my $stats = get_stats;
-	my %algo_to_stat = ();
+sub normalize_algo {
+	my $algo = shift;
 
-	for my $stat (@{$stats->{return}}) {
-		my $algo = lc $stat->{algo};
-		$algo_to_stat{$algo}{host} = $stat->{host};
-		$algo_to_stat{$algo}{port} = $stat->{multialgo_switch_port};
+	if ($algo eq 'lyra2re2') {
+		$algo = 'lyra2v2';
+	}
+	elsif ($algo eq 'myriad-groestl') {
+		$algo = 'myr-gr';
 	}
 
-	return \%algo_to_stat;
+	return $algo
+}
+
+sub get_miner_to_algo {
+	my ($host, $port, $algo) = @_;
+
+	if ($algo eq 'ethash') {
+		# disabled because it won't exist even after failover
+		#$cmd = get_ethminer_cmd($host, $port);
+	}
+	elsif ($algo eq 'equihash') {
+		return get_bminer_cmd($host, $port);
+	}
+	elsif (grep { $_ eq $algo } keys %ccminer_algos) {
+		return get_ccminer_cmd($host, $port, $algo);
+	}
+
+	return
+}
+
+sub get_work {
+	my $stats = get_stats;
+
+	for my $stat (@{$stats->{return}}) {
+		my $algo = normalize_algo(lc($stat->{algo}));
+		my $host = $stat->{host};
+		my $port = $stat->{multialgo_switch_port};
+		$stat->{normalized_algo} = $algo;
+		$stat->{cmd} = get_miner_to_algo($host, $port, $algo);
+	}
+
+	return $stats->{return}
 }
 
 ################################################################################
@@ -55,35 +87,21 @@ sub get_ccminer_cmd {
 # find whatever coin algorithm has the highest profit
 # switch to mining that algorithm with ccminer
 print "Starting CJ's multi-algo miner\n";
+
 while (1) {
 	print "Starting the parent loop\n";
-	my $algo_to_stat = get_algo_to_stat;
-	while (my ($algo, $stat) = each %$algo_to_stat) {
-		my $host = $stat->{host};
-		my $port = $stat->{port};
-		my $cmd;
 
-		# pick miner
-		if ($algo eq 'ethash') {
-			# disabled because it won't exist even after failover
-			#$cmd = get_ethminer_cmd($host, $port);
-		}
-		elsif ($algo eq 'equihash') {
-			$cmd = get_bminer_cmd($host, $port);
-		}
-		elsif (grep { $_ eq $algo } @ccminer_algos) {
-			$cmd = get_ccminer_cmd($host, $port, $algo);
-		}
-
-		# start child miner
-		if ($cmd) {
+	for my $work (@{get_work()}) {
+		print "Workload: ",Dumper($work) if $debug > 1;
+		if (my $cmd = $work->{cmd}) {
 			print "Starting child: $cmd\n";
-			system $cmd
+			system $cmd unless $debug
 		}
 		else {
-			print "Nothing can run this algorithm: $algo\n";
-			sleep 60;
+			print join(', ', keys %ccminer_algos), "\n" if $debug > 1;
+			printf "Nothing can run this algorithm: %s\n", $work->{algo};
 		}
 	}
-	sleep 1
+	exit if $debug;
+	sleep 3
 }
