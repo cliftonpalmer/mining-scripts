@@ -89,17 +89,20 @@ sub get_ccminer_cmd {
 
 # dump prints a script
 if (defined $dump) {
-	printf "#!%s", `which bash`;
-	printf "# generated on %s", `date`;
-	print "while true\n";
-	print "do\n";
+	open FILE, '>', $dump or die $!;
+
+	printf FILE "#!%s", `which bash`;
+	printf FILE "# generated on %s", `date`;
+	print FILE "while true\n";
+	print FILE "do\n";
 	for my $work (@{get_work()}) {
 		if (my $cmd = $work->{cmd}) {
-			print "\t$cmd\n"
+			print FILE "\t$cmd\n"
 		}
 	}
-	print "\tsleep 3\n";
-	print "done\n";
+	print FILE "\tsleep 3\n";
+	print FILE "done\n";
+	close FILE;
 	exit
 }
 
