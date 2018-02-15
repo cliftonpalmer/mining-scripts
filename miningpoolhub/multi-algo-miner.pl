@@ -6,7 +6,7 @@ use warnings;
 use JSON;
 use Data::Dumper;
 
-use vars qw( $debug $user );
+use vars qw( $debug $user $dump );
 $debug = 0 unless $debug;
 die "Need user" unless $user;
 
@@ -86,8 +86,24 @@ sub get_ccminer_cmd {
 ################################################################################
 # find whatever coin algorithm has the highest profit
 # switch to mining that algorithm with ccminer
-print "Starting CJ's multi-algo miner\n";
 
+# dump prints a script
+if (defined $dump) {
+	printf "#!%s", `which bash`;
+	printf "# generated on %s", `date`;
+	print "while true\n";
+	print "do\n";
+	for my $work (@{get_work()}) {
+		if (my $cmd = $work->{cmd}) {
+			print "\t$cmd\n"
+		}
+	}
+	print "\tsleep 3\n";
+	print "done\n";
+	exit
+}
+
+print "Starting CJ's multi-algo miner\n";
 while (1) {
 	print "Starting the parent loop\n";
 
