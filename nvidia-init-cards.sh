@@ -43,7 +43,7 @@ do
 	elif [[ $gpu_type == 'GeForce GTX 1070' ]]
 	then
 		# 1070
-		nvidia-smi -i $gpu_id -pl 130
+		nvidia-smi -i $gpu_id -pl 120
 		nvidia-settings \
 		    -a "[gpu:$gpu_id]/GPUFanControlState=1" \
 		    -a "[fan:$gpu_id]/GPUTargetFanSpeed=65" \
