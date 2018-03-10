@@ -6,10 +6,6 @@
 # must be run with each new card installation?
 # nvidia-xconfig --allow-empty-initial-configuration --enable-all-gpus --cool-bits=28 --separate-x-screens
 
-# -pm is 'persistence mode'
-# keeps nvidia driver loaded for all devices
-nvidia-smi -pm ENABLED
-
 export GPU_FORCE_64BIT_PTR=0
 export GPU_MAX_HEAP_SIZE=100
 export GPU_USE_SYNC_OBJECTS=1
